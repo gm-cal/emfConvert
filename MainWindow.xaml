@@ -5,7 +5,7 @@
     <Grid>
         <Button Content="変換" Width="100" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center"
                 Click="OnConvertClick"/>
-        <Button Content="デバッグ" Width="80" Height="30" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10"
+        <Button Content="▣" Width="30" Height="30" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="4"
                 Click="OnDebugClick"/>
     </Grid>
 </Window>

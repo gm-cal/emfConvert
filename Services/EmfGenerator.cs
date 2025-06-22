@@ -75,7 +75,7 @@ namespace Services{
                             Pen pen = new Pen(Color.Black, 1.0f);
                             Brush backgroundBrush = new SolidBrush(cell.BackgroundColor);
                             graphics.FillRectangle(backgroundBrush, rect); // 背景
-                            graphics.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height); // 枠線
+                            graphics.DrawRectangle(pen, rect.X, rect.Y, width, rect.Height); // 枠線
                             graphics.DrawString(cell.Text, font, Brushes.Black, rect.X + padding, rect.Y + 4); // テキスト
 
                             x += width;
