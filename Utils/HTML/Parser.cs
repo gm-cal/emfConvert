@@ -110,8 +110,9 @@ namespace Utils.HTML{
                 if (parts.Length == 2){
                     string key = parts[0].Trim().ToLower();
                     string value = parts[1].Trim();
-                    if (key == "background-color"){
-                        return value;
+                    if (key == "background-color" || key == "background"){
+                        // "background" may contain multiple values; first token is color
+                        return value.Split(' ')[0];
                     }
                 }
             }
