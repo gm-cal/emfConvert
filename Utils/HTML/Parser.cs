@@ -101,23 +101,34 @@ namespace Utils.HTML{
 
         private string ExtractCssBackgroundColor(string style){
             if (string.IsNullOrEmpty(style)){
-                return String.Empty;
+                return string.Empty;
             }
 
             string[] styles = style.Split(';');
             foreach (string item in styles){
-                string[] parts = item.Split(':');
-                if (parts.Length == 2){
-                    string key = parts[0].Trim().ToLower();
-                    string value = parts[1].Trim();
-                    if (key == "background-color" || key == "background"){
-                        // "background" may contain multiple values; first token is color
-                        return value.Split(' ')[0];
+                int colonIndex = item.IndexOf(':');
+                if (colonIndex < 0) continue;
+
+                string key = item.Substring(0, colonIndex).Trim().ToLowerInvariant();
+                string value = item.Substring(colonIndex + 1).Trim();
+
+                if (key == "background-color" || key == "background"){
+                    // "background" may contain additional tokens such as images or repeat settings
+                    int spaceIndex = value.IndexOf(' ');
+                    if (spaceIndex >= 0){
+                        value = value.Substring(0, spaceIndex);
                     }
+
+                    int importantIndex = value.IndexOf('!');
+                    if (importantIndex >= 0){
+                        value = value.Substring(0, importantIndex).Trim();
+                    }
+
+                    return value;
                 }
             }
 
-            return String.Empty;
+            return string.Empty;
         }
     }
 }
