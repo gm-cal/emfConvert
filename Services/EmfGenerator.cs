@@ -70,8 +70,6 @@ namespace Services{
                             }
 
                             RectangleF rect = new RectangleF(x, y, width, height);
-                            graphics.DrawRectangle(Pens.Black, rect.X, rect.Y, rect.Width, rect.Height);
-                            graphics.DrawString(cell.Text, font, Brushes.Black, rect.X + padding, rect.Y + 4);
 
                             // セル描画処理内（cell に対する処理の中）
                             Pen pen = new Pen(Color.Black, 1.0f);
