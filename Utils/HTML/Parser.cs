@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Utils.HTML.IO;
 
@@ -17,6 +18,8 @@ namespace Utils.HTML{
             while (browser.ReadyState != WebBrowserReadyState.Complete){
                 Application.DoEvents();
             }
+
+            Dictionary<string, Color> styleMap = ParseStyleDictionary(html);
 
             HtmlElementCollection tables = browser.Document.GetElementsByTagName("table");
             if (tables.Count == 0){
@@ -44,6 +47,8 @@ namespace Utils.HTML{
                 }
 
                 foreach (HtmlElement td in tdElements){
+                    string className = td.GetAttribute("className") ?? td.GetAttribute("class");
+
                     int colspan = ParseSpan(td.GetAttribute("colspan"));
                     int rowspan = ParseSpan(td.GetAttribute("rowspan"));
                     string text = td.InnerText ?? string.Empty;
@@ -57,6 +62,12 @@ namespace Utils.HTML{
                         RowSpan = rowspan
                     };
 
+                    if (!string.IsNullOrEmpty(className) && styleMap.TryGetValue(className, out Color bgColor)){
+                        cell.BackgroundColor = bgColor;
+                    } else {
+                        cell.BackgroundColor = Color.White; // デフォルトの背景色
+                    }
+
                     string bgcolor = td.GetAttribute("bgcolor");
                     string style = td.GetAttribute("style");
 
@@ -64,7 +75,7 @@ namespace Utils.HTML{
                     string htmlColor = !string.IsNullOrEmpty(cssColor) ? cssColor : bgcolor;
 
                     if (!string.IsNullOrEmpty(htmlColor)){
-                        try{
+                        try {
                             cell.BackgroundColor = ColorTranslator.FromHtml(htmlColor);
                         } catch {
                             cell.BackgroundColor = Color.White;
@@ -129,6 +140,37 @@ namespace Utils.HTML{
             }
 
             return string.Empty;
+        }
+
+        private Dictionary<string, Color> ParseStyleDictionary(string html){
+            Dictionary<string, Color> styleMap = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
+
+            // <style>～</style>部分だけ取得
+            int styleStart = html.IndexOf("<style", StringComparison.OrdinalIgnoreCase);
+            int styleEnd = html.IndexOf("</style>", StringComparison.OrdinalIgnoreCase);
+            if (styleStart == -1 || styleEnd == -1) return styleMap;
+
+            string styleContent = html.Substring(styleStart, styleEnd - styleStart);
+
+            // .xl72 { background:#87E7AD; ... } のパターン取得
+            Regex regex = new Regex(@"(\.[a-zA-Z0-9_-]+)\s*\{([^}]+)\}", 
+                RegexOptions.IgnoreCase);
+
+            foreach (Match match in regex.Matches(styleContent)){
+                string className = match.Groups[1].Value.Trim('.'); // .xl72 -> xl72
+                string styleBody = match.Groups[2].Value;
+
+                string color = ExtractCssBackgroundColor(styleBody);
+                if (!string.IsNullOrEmpty(color)){
+                    try{
+                        styleMap[className] = ColorTranslator.FromHtml(color);
+                    } catch {
+                        styleMap[className] = Color.White;
+                    }
+                }
+            }
+
+            return styleMap;
         }
     }
 }
