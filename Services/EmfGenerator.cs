@@ -32,6 +32,16 @@ namespace Services{
 
             SizeF tableSize = TableLayoutCalculator.ComputeCellSizes(table, font, padding);
 
+            // 各行の最大高さを計算
+            List<float> rowMaxHeights = new List<float>();
+            for (int rowIndex = 0; rowIndex < table.Count; rowIndex++){
+                float maxHeight = 0.0f;
+                foreach (var cell in table[rowIndex]){
+                    if (cell.Height > maxHeight) maxHeight = cell.Height;
+                }
+                rowMaxHeights.Add(maxHeight);
+            }
+
             Rectangle frame = new Rectangle(0, 0, (int)Math.Ceiling(tableSize.Width), (int)Math.Ceiling(tableSize.Height));
             using (MemoryStream stream = new MemoryStream())
             using (Graphics referenceGraphics = Graphics.FromHwnd(IntPtr.Zero)){
@@ -54,6 +64,7 @@ namespace Services{
                     for (int rowIndex = 0; rowIndex < table.Count; rowIndex++){
                         List<Cell> row = table[rowIndex];
                         float x = 0.0f;
+                        float rowHeight = rowMaxHeights[rowIndex]; // この行の最大高さ
 
                         for (int colIndex = 0; colIndex < row.Count; colIndex++){
                             Cell cell = row[colIndex];
@@ -64,10 +75,8 @@ namespace Services{
                                 width += row[colIndex + i].Width;
                             }
 
-                            float height = 0.0f;
-                            for (int i = 0; i < cell.RowSpan && rowIndex + i < table.Count; i++){
-                                height += table[rowIndex + i][colIndex].Height;
-                            }
+                            // 高さは行の最大値に合わせる
+                            float height = rowHeight;
 
                             RectangleF rect = new RectangleF(x, y, width, height);
 
@@ -81,7 +90,7 @@ namespace Services{
                             x += width;
                         }
 
-                        y += row[0].Height;
+                        y += rowHeight;
                     }
                 }
 
