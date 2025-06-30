@@ -1,8 +1,14 @@
 ﻿using System.Windows;
 using System;
+using System.IO;
 using Services;
-using System.Runtime.InteropServices; // 追加
-using System.Windows.Interop; // 追加
+using System.Runtime.InteropServices;
+using System.Windows.Interop;
+using System.Windows.Media.Imaging;
+using System.Windows.Controls;
+using System.Drawing.Drawing2D;
+using System.Drawing;
+using System.Drawing.Imaging;
 
 public partial class MainWindow : Window{
     // Win32 API 定義
@@ -18,14 +24,20 @@ public partial class MainWindow : Window{
     private const uint VK_E = 0x45;
     private const uint VK_R = 0x52;
 
+    private readonly EmfGenerator _emfGenerator;
+
     public MainWindow(){
         InitializeComponent();
+        // DIで各機能を注入
+        Utils.HTML.Parser parser = new Utils.HTML.Parser();
+        Utils.HTML.Layout.TableLayoutCalculator tableLayoutCalculator = new Utils.HTML.Layout.TableLayoutCalculator();
+        _emfGenerator = new EmfGenerator(parser, tableLayoutCalculator);
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e){
-        var helper = new WindowInteropHelper(this);
+        WindowInteropHelper helper = new WindowInteropHelper(this);
         RegisterHotKey(helper.Handle, HOTKEY_ID_CONVERT, MOD_CONTROL | MOD_SHIFT, VK_E); // Ctrl+Shift+E
         RegisterHotKey(helper.Handle, HOTKEY_ID_RESIZE, MOD_CONTROL | MOD_SHIFT, VK_R);  // Ctrl+Shift+R
         HwndSource source = HwndSource.FromHwnd(helper.Handle);
@@ -33,7 +45,7 @@ public partial class MainWindow : Window{
     }
 
     private void MainWindow_Closed(object sender, EventArgs e){
-        var helper = new WindowInteropHelper(this);
+        WindowInteropHelper helper = new WindowInteropHelper(this);
         UnregisterHotKey(helper.Handle, HOTKEY_ID_CONVERT);
         UnregisterHotKey(helper.Handle, HOTKEY_ID_RESIZE);
     }
@@ -53,8 +65,7 @@ public partial class MainWindow : Window{
     }
 
     private void OnConvertClick(object sender, RoutedEventArgs e){
-        EmfGenerator generator = new EmfGenerator();
-        generator.ConvertClipboardHtmlTableToEmf();
+        _emfGenerator.ConvertClipboardHtmlTableToEmf();
     }
 
     private void OnDebugClick(object sender, RoutedEventArgs e){
@@ -65,64 +76,40 @@ public partial class MainWindow : Window{
                 Title = "Clipboard HTML",
                 Width = 800,
                 Height = 600,
-                Content = new System.Windows.Controls.ScrollViewer{
-                    Content = new System.Windows.Controls.TextBox{
+                Content = new ScrollViewer{
+                    Content = new TextBox{
                         Text = html,
                         IsReadOnly = true,
                         AcceptsReturn = true,
                         AcceptsTab = true,
-                        VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
-                        HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
-                        TextWrapping = System.Windows.TextWrapping.NoWrap
+                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                        HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                        TextWrapping = TextWrapping.NoWrap
                     }
                 }
             };
             htmlWindow.ShowDialog();
         } else {
-            System.Windows.MessageBox.Show("クリップボードにHTMLデータがありません", "Clipboard HTML");
+            MessageBox.Show("クリップボードにHTMLデータがありません", "Clipboard HTML");
         }
     }
 
     private void OnResizeImageClick(object sender, RoutedEventArgs e){
-        if (!Clipboard.ContainsImage()){
-            MessageBox.Show("クリップボードに画像がありません。", "画像リサイズ");
-            return;
-        }
-        // 倍率取得
-        if (!double.TryParse(ResizeScaleTextBox.Text, out double percent) || percent <= 0){
+        double percent;
+        if (!double.TryParse(ResizeScaleTextBox.Text, out percent) || percent <= 0){
             MessageBox.Show("有効な倍率(%)を入力してください。", "画像リサイズ");
             return;
         }
-        var srcBmp = Clipboard.GetImage();
-        int width = (int)(srcBmp.Width * percent / 100.0);
-        int height = (int)(srcBmp.Height * percent / 100.0);
-        if (width <= 0 || height <= 0){
-            MessageBox.Show("倍率が小さすぎます。", "画像リサイズ");
-            return;
+        string errorMessage;
+        bool result = Utils.ImageResizer.ResizeClipboardImage(percent, out errorMessage);
+        if (!result)
+        {
+            MessageBox.Show(errorMessage, "画像リサイズ");
         }
-        // BitmapSource → System.Drawing.Bitmap
-        using (var ms = new System.IO.MemoryStream()){
-            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(srcBmp));
-            encoder.Save(ms);
-            using (var bmp = new System.Drawing.Bitmap(ms)){
-                using (var resizedBmp = new System.Drawing.Bitmap(width, height)){
-                    using (var g = System.Drawing.Graphics.FromImage(resizedBmp)){
-                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-                        g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-                        g.DrawImage(bmp, 0, 0, width, height);
-                    }
-                    // PNG形式でクリップボードへ（画素情報保持）
-                    using (var msOut = new System.IO.MemoryStream()){
-                        resizedBmp.Save(msOut, System.Drawing.Imaging.ImageFormat.Png);
-                        msOut.Seek(0, System.IO.SeekOrigin.Begin);
-                        var pngBitmap = new System.Windows.Media.Imaging.PngBitmapDecoder(msOut, System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
-                        Clipboard.SetImage(pngBitmap.Frames[0]);
-                    }
-                }
-            }
-        }
-        MessageBox.Show("画像を" + percent + "%でリサイズしクリップボードへ戻しました。", "画像リサイズ");
+        // 成功時のメッセージは不要ならコメントアウトのまま
+        // else
+        // {
+        //     MessageBox.Show($"画像を{percent}%でリサイズしクリップボードへ戻しました。", "画像リサイズ");
+        // }
     }
 }
