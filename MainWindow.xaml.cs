@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Drawing.Drawing2D;
 using System.Drawing;
 using System.Drawing.Imaging;
+using Utils;
 
 public partial class MainWindow : Window{
     // Win32 API 定義
@@ -65,33 +66,57 @@ public partial class MainWindow : Window{
     }
 
     private void OnConvertClick(object sender, RoutedEventArgs e){
-        _emfGenerator.ConvertClipboardHtmlTableToEmf();
+        if (Clipboard.ContainsText(TextDataFormat.Html)){
+            _emfGenerator.ConvertClipboardHtmlTableToEmf();
+            return;
+        }
+
+        if (Clipboard.ContainsText()){
+            string text = Clipboard.GetText();
+            if (SvgClipboardHelper.IsSvgText(text)){
+                SvgClipboardHelper.SetSvgFormat(text);
+                MessageBox.Show("SVGフォーマットをクリップボードに生成しました。", "SVG" );
+                return;
+            }
+        }
+
+        MessageBox.Show("クリップボードにHTMLまたはSVGデータがありません。", "エラー");
     }
 
-    private void OnDebugClick(object sender, RoutedEventArgs e){
+    private void OnViewClipboardClick(object sender, RoutedEventArgs e){
         if (Clipboard.ContainsText(TextDataFormat.Html)){
             string html = Clipboard.GetText(TextDataFormat.Html);
-            // カスタムウィンドウでHTMLを表示（スクロール・サイズ指定）
-            Window htmlWindow = new Window{
-                Title = "Clipboard HTML",
-                Width = 800,
-                Height = 600,
-                Content = new ScrollViewer{
-                    Content = new TextBox{
-                        Text = html,
-                        IsReadOnly = true,
-                        AcceptsReturn = true,
-                        AcceptsTab = true,
-                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                        HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                        TextWrapping = TextWrapping.NoWrap
-                    }
-                }
-            };
-            htmlWindow.ShowDialog();
-        } else {
-            MessageBox.Show("クリップボードにHTMLデータがありません", "Clipboard HTML");
+            ShowTextWindow(html, "Clipboard HTML");
+            return;
         }
+
+        if (Clipboard.ContainsText()){
+            string text = Clipboard.GetText();
+            ShowTextWindow(text, "Clipboard Text");
+            return;
+        }
+
+        MessageBox.Show("クリップボードに表示可能なデータがありません", "Clipboard");
+    }
+
+    private void ShowTextWindow(string text, string title){
+        Window window = new Window{
+            Title = title,
+            Width = 800,
+            Height = 600,
+            Content = new ScrollViewer{
+                Content = new TextBox{
+                    Text = text,
+                    IsReadOnly = true,
+                    AcceptsReturn = true,
+                    AcceptsTab = true,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    TextWrapping = TextWrapping.NoWrap
+                }
+            }
+        };
+        window.ShowDialog();
     }
 
     private void OnResizeImageClick(object sender, RoutedEventArgs e){
